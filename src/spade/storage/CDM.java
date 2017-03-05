@@ -140,7 +140,7 @@ public class CDM extends Kafka {
 	/**
 	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
 	 */
-	private boolean hexUUIDs = false;
+	private boolean hexUUIDs = true;
 	/**
 	 * A map used to keep track of:
 	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
@@ -752,8 +752,8 @@ public class CDM extends Kafka {
 		}// else continue
 
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if("true".equals(argumentsMap.get("hexUUIDs"))){
-			hexUUIDs = true;
+		if("false".equals(argumentsMap.get("hexUUIDs"))){
+			hexUUIDs = false;
 		}
 
 		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
