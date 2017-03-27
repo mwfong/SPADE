@@ -234,6 +234,7 @@ clean:
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeSocketBridge
+	@ (cd src/spade;	$(MAKE) $(MAKECMDGOALS))
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp
