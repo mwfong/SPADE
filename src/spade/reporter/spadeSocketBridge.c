@@ -33,6 +33,8 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <stdlib.h>
 #include <getopt.h>
 
+#include "DynMsg.h"
+
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
 #define FALSE           0
@@ -47,6 +49,9 @@ int socketRead = FALSE;
 int fileRead = FALSE;
 char socketPath[256];
 char filePath[256];
+
+GMsg_declare ();
+
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -142,15 +147,15 @@ void socket_read(char *programName)
 				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 
 				while (TRUE) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
+						charactersRead = recv(audispdSocketDescriptor, buffer, BUFFER_LENGTH - 1, 0);
 						if (charactersRead < 0) {
 								fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", programName, strerror(errno));
 								break;
 						} else if (charactersRead == 0) {
-								fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", programName, strerror(errno));
+								fprintf(stderr, "%s: Server closed the connection. Error: %s\n", programName, strerror(errno));
 								break;
 						}
+						*(buffer + charactersRead) = '\0';
 						UBSI_buffer(buffer);
 				}
 		} while (FALSE);
@@ -165,8 +170,8 @@ void stdin_read()
 		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
 				while (TRUE) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, stdin) == NULL) {
+						*(buffer + BUFFER_LENGTH - 1) = '\0'; 
+						if(fgets(buffer, BUFFER_LENGTH, stdin) == NULL) {
 								fprintf(stderr, "Reaches the end of file (stdin).\n");
 								UBSI_buffer_flush();
 								break;
@@ -200,8 +205,8 @@ void file_read()
 				}
 				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 				while (!feof(log_fp)) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, log_fp) == NULL) {
+						*(buffer + BUFFER_LENGTH - 1) = '\0';
+						if(fgets(buffer, BUFFER_LENGTH, log_fp) == NULL) {
 								fprintf(stderr, "Reaches the end of file (%s).\n", tmp);
 								//UBSI_buffer_flush();
 								break;
@@ -220,10 +225,11 @@ void file_read()
 int main(int argc, char *argv[]) {
 		char *programName = argv[0];
 		int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
-		char buffer[BUFFER_LENGTH];
 		struct sockaddr_un serverAddress;
 
 		command_line_option(argc, argv);
+
+		GMsg_init ();
 
 		signal(SIGINT, UBSI_sig_handler);
 		signal(SIGKILL, UBSI_sig_handler);
@@ -406,28 +412,27 @@ long get_eventid(char* buf){
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
 		int rc;
-		char buffer[BUFFER_LENGTH];
 
 		if(!print_unit && !print_proc) {
 				rc = printf("%s", buf);
 				return rc;
 		}
 
-		buf[strlen(buf)-1] = '\0';
-		
-		rc = sprintf(buffer, "%s", buf);
+		GMsg_init ();
+
+		DynMsg_strncat (_pGDynMsg, buf, strlen (buf));
 		if(print_unit) {
-				rc += sprintf(buffer + rc, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
+				DynMsg_sprintf (_pGDynMsg, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d)"
 							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
-				rc += sprintf(buffer + rc, "%s", ut->proc);
+				DynMsg_sprintf (_pGDynMsg, " %s", ut->proc);
 		}
 
-		if(!print_proc) sprintf(buffer + rc, "\n");
+		if(!print_proc) GMsg_addchar ('\n');
 
-		rc = printf("%s", buffer);
+		rc = printf("%s", GMsg_get ());
 
 		return rc;
 }
@@ -489,19 +494,20 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 
 void loop_exit(unit_table_t *unit)
 {
-		char tmp[10240];
+		GMsg_init ();
 
-		sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
-		emit_log(unit, tmp, false, true);
+		DynMsg_sprintf (_pGDynMsg, "type=UBSI_EXIT pid=%d", unit->cur_unit.tid);
+		emit_log (unit, GMsg_get (), false, true);
 		unit->valid = false;
 }
 
 void unit_entry(unit_table_t *unit, long a1, char* buf)
 {
-		char tmp[10240];
 		int tid = unit->tid;
 		double time;
 		long eventid;
+
+		GMsg_init ();
 
 		time = get_timestamp(buf);
 		eventid = get_eventid(buf);
@@ -530,28 +536,27 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		sprintf(tmp, "type=UBSI_ENTRY msg=(%.3f:%ld): ", time, eventid);
-		emit_log(unit, tmp, true, true);
+		DynMsg_sprintf (_pGDynMsg, "type=UBSI_ENTRY msg=(%.3f:%ld):", time, eventid);
+		emit_log(unit, GMsg_get (), true, true);
 		//TODO: emit unit_entry event with 5 tuples: {pid, unitid, iteration, start_time, count}
 }
 
 void unit_end(unit_table_t *unit, long a1)
 {
 		struct link_unit_t *ut;
-		char buf[10240];
 
 		if(unit->valid == true || HASH_COUNT(unit->link_unit) > 1) {
-				bzero(buf, 10240);
+				GMsg_init ();
 				// emit linked unit lists;
 				if(unit->link_unit != NULL) {
-						sprintf(buf, "type=UBSI_DEP list=\"");
+						DynMsg_sprintf (_pGDynMsg, "type=UBSI_DEP list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
 								//sprintf(buf+strlen(buf), "%d-%d,", ut->id.tid, ut->id.unitid);
-								sprintf(buf+strlen(buf), "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
+								DynMsg_sprintf (_pGDynMsg, "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
 								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
-						sprintf(buf+strlen(buf), "\" ");
-						emit_log(unit, buf, true, true);
+						GMsg_addchar ('\"');
+						emit_log(unit, GMsg_get (), true, true);
 				}
 		}
 
@@ -998,3 +1003,7 @@ void UBSI_sig_handler(int signo)
 				// ignore the signal and the process continues until the end of the input stream/file.
 		}
 }
+
+//Local Variables:
+//tab-width: 1
+//End:

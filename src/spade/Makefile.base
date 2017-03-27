@@ -1,0 +1,743 @@
+# Makefile V2.2
+#
+# mkmf -F l.Makefile
+
+# Variables to modify:
+#
+#   CFLAGS:         as desired.
+#   CFLAGS_ADD:	    as desired.
+#   C++FLAGS:	    as desired.
+#   C++FLAGS_ADD:   as desired.
+#   DOCPUSH:	    documents installed in DOCDEST (i.e., doc/mylib.ms).
+#   HDRSPUSH:	    headers installed in HDRSDEST (i.e., mylib.h).
+#   MANPUSH:	    man pages installed in MANDEST (i.e., man/mylib.1).
+#   LIBRARY_NAME:   name of this library (i.e., libmylib.a).
+#   TOPDIR:	    relative location of installation directory.
+#
+#   CONFIGURATION:  The following baseline qualifiers may be added:
+#			application
+#			thread
+#			library
+#			dynamic
+#			java
+#			lint
+#			CPLUSPLUS
+#			DEBUG
+#			NO_STATIC_$(OS_SYSN)
+
+CONFIGURATION += 
+
+ifneq (, $(findstring java, $(CONFIGURATION)))
+include /project/java/bin/java.mak
+endif
+
+## tell 64-bit architectures to use 32-bit mode until we can fix the code...
+#OS_ARCH	      = $(shell ../get_os_syms.csh OS_ARCH)
+#ifeq ("$(OS_ARCH)", "x86_64")
+#    CCOPT    += -m32
+#    LDFLAGS  += -m32
+#endif
+
+BRANDELF      = /usr/bin/brandelf    
+
+F_BRANDELF    = $(shell if test -f $(BRANDELF) ; then echo 1 ; fi)
+
+
+export C++    = g++
+
+C++FLAGS     += -D__CPLUSPLUS__ $(CCOPT) $(C++FLAGS_ADD)
+ifneq (, $(findstring debug, $(CONFIGURATION)))
+    C++FLAGS += -gstabs
+endif
+
+C++FLAGS_ADD += 
+
+export CC     = gcc
+
+ifneq (, $(findstring DEBUG, $(CONFIGURATION)))
+    CCOPT    += -g -O0
+else
+    CCOPT    += -O2
+endif
+ifneq (, $(findstring lint, $(CONFIGURATION)))
+    CCOPT    += -Dlint -ansi -pedantic -Wunused -Wuninitialized		\
+		-Wimplicit -Wreturn-type -Wcomment -Wchar-subscripts	\
+		-Wparentheses -Wswitch -DDO_STRICT_ANSI
+endif
+
+ifneq (, $(findstring thread, $(CONFIGURATION)))
+    CCOPT    += -pthread
+    LDFLAGS  += -pthread
+endif
+
+ifneq (, $(findstring dynamic, $(CONFIGURATION)))
+    ifneq (, $(findstring application, $(CONFIGURATION)))
+	LDFLAGS  += -ldl
+    else
+	CCOPT    += -fPIC
+	LDFLAGS  += -shared
+    endif
+endif
+
+DEV_INCLS    += 
+
+ifneq (, $(findstring purify, $(MAKECMDGOALS)))
+    DEV_INCLS += -I/csl/include
+endif
+
+ifneq (, $(findstring quantify, $(MAKECMDGOALS)))
+    DEV_INCLS += -I/csl/include
+endif
+
+INCLS	     += -I. $(DEV_INCLS)	 	\
+		$(OS_INCLS)
+
+TOOL_DIR	?= .
+
+GET_OS_SYMS	?= $(TOOL_DIR)/get_os_syms.csh
+
+OS_SYSN	      = $(shell $(GET_OS_SYMS) OS_SYSN)
+OS_VERS_STR   = $(shell $(GET_OS_SYMS) OS_VERS_STR)
+OS_NAME_ARCH  = $(shell $(GET_OS_SYMS) OS_NAME_ARCH)
+OS_NAME	      = $(shell $(GET_OS_SYMS) OS_NAME_FULL)
+OS_DIR	      = $(OS_NAME)$(PROF)
+
+# we need this to define certain system structures (like timeval)
+ifeq ($(OS_NAME), HP_UX-B.11)
+    MACROS_SYS = -D_HPUX_SOURCE
+endif
+
+# Establish the "no newline" echo flag
+ifeq ("$(shell echo -n)", "")
+    ECHO_FLAG = -n
+endif
+
+CFLAGS	     += $(CCOPT) $(DEFS) $(CFLAGS_ADD)
+
+CFLAGS.java  += -I$(JAVADIR) -I$(JAVADIR)/OS_NAME
+
+CPPFLAGS     += $(INCLS)
+
+CPPFLAGS     += -DOS_NAME=\"$(OS_NAME)\"		\
+		-DOS_SYSN=\"$(OS_SYSN)\"		\
+		-D$(OS_SYSN)				\
+		-D__$(OS_SYSN)_$(OS_VERS_STR)__		\
+		$(MACROS_SYS)
+
+ifneq (, $(SRCS.m))
+    CPPFLAGS += -fgnu-runtime -Wno-import
+endif
+
+ifneq (, $(findstring DEBUG, $(CONFIGURATION)))
+    CPPFLAGS += -DDEBUG_PS
+
+    .ALWAYS_EVAL += $(shell if test ! -f $(OS_DIR)/.debug_support ;	\
+		      then rm -f $(OS_DIR)/$(PROGRAM).o ; fi)
+    .LOAD_EVAL   += $(shell if test -f /dev/tty ; then			\
+		      echo ...building with debug support >> /dev/tty ;	\
+		      fi)
+else
+    .ALWAYS_EVAL += $(shell if test -f $(OS_DIR)/.debug_support ;	\
+		      then rm -f $(OS_DIR)/$(PROGRAM).o ; fi)
+endif
+
+ifneq (, $(findstring purify, $(MAKECMDGOALS)))
+    CPPFLAGS += -DDEBUG_PURIFY
+endif
+
+ifneq (, $(findstring quantify, $(MAKECMDGOALS)))
+    CPPFLAGS += -DDEBUG_QUANTIFY
+endif
+
+# Target-specific C preprocessor #defines
+
+CLASSPATH     = .:..:$(JRTE_PATH)
+
+CLASSES.java  = $(SRCS.java:%.java=%.class) \
+		$(SRCS.javah:%.java=%.class) \
+		$(SRCS.javahs:%.java=%.class)
+
+CURR_DIR      = $(shell basename `pwd`)
+
+DEBUGGER      =
+
+DOCDEST       = $(TOPDIR)/doc
+
+DOCPUSH      += 
+
+HDRSDEST      = $(TOPDIR)/include
+
+HDRSPUSH     +=
+
+HDRS	     +=
+
+HDRS.java     = $(SRCS.javah:%.java=%.h) $(SRCS.javahs:%.java=%.h)
+
+JAVA	      = java
+
+JAVAFLAGS     = 
+
+JAVA.args     = 
+
+JAVAC	      = javac
+
+JAVACFLAGS    = -g
+#JAVACFLAGS    = -g -deprecation
+
+JAVAH	      = javah
+
+JAVAPATH      = 
+
+ifneq (, $(findstring CPLUSPLUS, $(CONFIGURATION)))
+    LD.dyn    = $(C++)
+else
+    LD.dyn    = $(CC)
+endif
+LDFLAGS.dyn	 += $(LDFLAGS)
+ifeq ($(OS_SYSN), Darwin)
+    LDFLAGS.dyn  += -dynamiclib
+    DYN_EXT       = dylib
+else
+    LDFLAGS.dyn  += -shared
+    DYN_EXT       = so
+endif
+
+LDFLAGS	     += $(.LOAD_EVAL)
+
+# -Bstatic for cc, -static for gcc
+
+LDFLAGS_STATIC = $(LDFLAGS) -L$(TOPDIR)/lib
+
+ifeq ($(CC), gcc)
+    LDFLAGS_STATIC += -static
+else
+    LDFLAGS_STATIC += -Bstatic
+endif
+
+ifneq (, $(LD_LIBRARY_PATH))
+    LD_LIBRARY_PATH = .:..
+endif
+
+# Target-specific library declarations
+
+LIB_SYS.SunOS = -lsocket -lnsl
+
+LIBS_SYS		+= $(LIB_SYS.$(OS_SYSN)) -lm
+LIBS			+=
+
+ifneq (, $(SRCS.m))
+    LIBS     += -lobjc
+endif
+
+ifeq ($(WIN), X)
+    LIBS     += -L/usr/local/lib		\
+		-lXaw -lXmu -lXt -lXext -lX11
+endif
+
+LIBS_STATIC   = $(LIBS)
+
+ifneq (, $(findstring CPLUSPLUS, $(CONFIGURATION)))
+    LINKER    = $(C++)
+else
+    LINKER    = $(CC)
+endif
+
+MAKEFILE      = Makefile
+
+MANDEST       = $(TOPDIR)/man
+
+MANPUSH       = 
+
+ifeq ("", "$(OBJS)")
+  OBJS 	      = $(SRCS.cpp:%.cpp=$(OS_DIR)/%.o)	\
+		$(SRCS.C:%.C=$(OS_DIR)/%.o)	\
+		$(SRCS.m:%.m=$(OS_DIR)/%.o)	\
+		$(SRCS:%.c=$(OS_DIR)/%.o)		
+  ifeq (dynamiclibrary, $(findstring dynamic, $(CONFIGURATION))$(findstring library, $(CONFIGURATION)))
+    R_OBJS    = $(SRCS.cpp:%.cpp=%.o)		\
+		$(SRCS.C:%.C=%.o)		\
+		$(SRCS.m:%.m=%.o)		\
+		$(SRCS:%.c=%.o)		
+  endif
+endif
+
+OBJS_ADD     += 
+
+OS_TYPE		= BSD
+INSTALL		= install
+
+ifeq ($(OS_SYSN), SunOS)
+OS_TYPE		= SYSV
+INSTALL		= /usr/sbin/install
+MACROS_SYS      = -DSOLARIS
+endif
+
+ifeq ($(OS_SYSN), HP_UX)
+OS_TYPE         = SYSV
+endif
+
+PRINT	      = pr
+
+ifneq (, $(findstring library, $(CONFIGURATION)))
+    DEST	  = $(TOPDIR)/lib/$(OS_DIR)
+
+    ifeq (, $(LIBRARY_NAME))
+        LIBRARY_NAME  = lib
+    endif
+    LIBRARY       = $(OS_DIR)/$(LIBRARY_NAME)
+    BASELIB.dyn   = $(shell echo $(LIBRARY_NAME) | cut -d. -f1).$(DYN_EXT)
+    LIBRARY.dyn   = $(OS_DIR)/$(BASELIB.dyn)
+endif
+
+ifneq (, $(findstring application, $(CONFIGURATION)))
+    DEST		= $(TOPDIR)/bin/$(OS_DIR)
+
+    ifeq (, $(PROGRAM_NAME))
+    PROGRAM_NAME	= a.out
+    endif
+    PROGRAM_STATIC_NAME	= $(PROGRAM_NAME).static
+
+    PROGRAM		= $(OS_DIR)/$(PROGRAM_NAME)
+    PROGRAM_STATIC	= $(OS_DIR)/$(PROGRAM_STATIC_NAME)
+
+    PROGRAM_PURIFY	= $(PROGRAM).purify
+    PROGRAM_QUANTIFY	= $(PROGRAM).quantify
+    PROGRAM_COVERAGE	= $(PROGRAM).coverage
+
+    ifneq (, $(findstring purify, $(MAKECMDGOALS)))
+	PURIFYCACHE   = -cache-dir=purify_cache \
+			-always-use-cache-dir
+
+	PURIFYIGNORE  = -ignore-runtime-environment=yes
+
+#	 PURIFYLOGFILE = -logfile="%v_%p.log"
+
+	PURIFYOPTIONS = $(PURIFYIGNORE) $(PURIFYCLCTR)	\
+			$(PURIFYCACHE) $(PURIFYLOGFILE)	\
+			-chain-length="12"
+    endif
+endif
+
+PURIFY		= purify $(PURIFYOPTIONS)
+
+QUANTIFY	= quantify $(PURIFYCACHE)
+
+COVERAGE	= purecov $(PURIFYCACHE)
+
+SHELL		= /bin/sh
+
+ifneq (, $(findstring application, $(CONFIGURATION)))
+    ifeq (, $(SRCS))
+        SRCS      = 
+    endif	
+    ifeq (, $(SRCS.cpp))
+        SRCS.cpp  = 
+    endif
+    ifeq (, $(SRCS.C))
+        SRCS.C    = 
+    endif
+    ifeq (, $(SRCS.m))
+        SRCS.m    = 
+    endif
+endif
+
+ifneq (, $(findstring library, $(CONFIGURATION)))
+    SRCS      += 
+endif
+
+ifneq (, $(findstring java, $(CONFIGURATION)))
+    SRCS      += $(SRCS.javahs:%.java=_%.c)
+endif
+
+# Class only
+SRCS.java     = 
+
+# Header only
+SRCS.javah    = 
+
+# Headers and stubs
+SRCS.javahs   = 
+
+STUBS.java    = $(SRCS.javahs:%.java=%.stub)
+
+SUFFIX	      = m:sC C:sC cpp:sC java:s stub:sC
+
+ifneq (, $(findstring application, $(CONFIGURATION)))
+    TARGET    = $(PROGRAM)
+endif
+ifneq (, $(findstring library, $(CONFIGURATION)))
+    ifneq (, $(findstring dynamic, $(CONFIGURATION)))
+        TARGET    += $(LIBRARY.dyn)
+    else
+	TARGET    += $(LIBRARY)
+    endif
+endif
+ifneq (, $(findstring java, $(CONFIGURATION)))
+    TARGET    = $(CLASSES.java) $(HDRS.java) $(STUBS.java) $(OBJS) \
+		$(LIBRARY.dyn)
+endif
+
+TARGET += $(.ALWAYS_EVAL)
+
+TEST.java     = $(SRCS.java:%.java=%)
+
+TOPDIR	      = ../..
+
+WIN	      =
+
+ZIPFILE	      = 
+
+ZIPFILE.src   = $(CURR_DIR)Src.zip
+
+
+.SUFFIXES:	.m .c .C .cpp .java .class .stub
+
+$(OS_DIR)/%.o:	%.c
+		$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(OS_DIR)/%.o:	%.C
+		$(C++) $(C++FLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(OS_DIR)/%.o:	%.cpp
+		$(C++) $(C++FLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(OS_DIR)/%.o:	%.m
+		$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+.java.class:;	$(JAVAPATH)$(JAVAC) $(JAVACFLAGS) $<
+
+.class.h:;	@rm -f $*.h
+		$(JAVAPATH)$(JAVAH) $*
+
+.class.stub:;	@rm -f $*.stub
+		$(JAVAPATH)$(JAVAH) -stubs -o $*.stub $*
+
+OS_DIR_NEED	= $(shell test ! -d $(OS_DIR) && echo $(OS_DIR))
+
+all:		$(OS_DIR_NEED) $(TARGET)
+
+$(LIBRARY):	$(OS_DIR_NEED) $(OBJS)
+		@echo $(ECHO_FLAG) "Loading $(LIBRARY) ... "
+		@ar cru $(LIBRARY) $(OBJS)
+		@ranlib $(LIBRARY)
+		@echo "done"
+
+$(LIBRARY.dyn):	$(CLASSES.java) $(HDRS.java) $(STUBS.java) $(OBJS)
+		@echo $(ECHO_FLAG) "Loading $(LIBRARY.dyn) ... "
+		@(cd $(OS_DIR);	\
+		 $(LD.dyn) -o $(BASELIB.dyn) $(R_OBJS) $(LDFLAGS.dyn))
+		@echo "done"
+
+MKDIR		?= $(TOOL_DIR)/mkdir.csh
+
+$(OS_DIR):;	$(MKDIR) $@
+
+$(PROGRAM):     $(OS_DIR_NEED) $(OBJS) $(LIBS) # dynamic
+		@echo $(ECHO_FLAG) "Loading $(PROGRAM) ... "
+		@rm -f	$(OS_DIR)/.debug_support	
+		@$(LINKER) $(LDFLAGS) \
+		     $(OBJS) $(OBJS_ADD) $(LIBS) $(LIBS_SYS) -o $(PROGRAM) \
+		     $(LDFLAGS)
+            ifneq (, $(findstring DEBUG, $(CONFIGURATION)))
+		@rm -f $(OS_DIR)/.debug_support
+		@touch $(OS_DIR)/.debug_support
+            endif
+		@echo "done"
+
+$(PROGRAM_STATIC): $(OS_DIR_NEED) $(OBJS) $(OBJS_STATIC) $(LIBS) # static
+            ifneq (, $(findstring NO_STATIC_$(OS_SYSN), $(CONFIGURATION)))
+		$(error Static build is disallowed under $(OS_SYSN))
+            endif
+		@echo $(ECHO_FLAG) "Loading $(PROGRAM_STATIC) ... "
+		@$(LINKER) $(LDFLAGS_STATIC)			\
+		    $(OBJS) $(OBJS_STATIC) $(OBJS_ADD)		\
+		    $(LIBS_STATIC) $(LIBS_SYS) -o $(PROGRAM_STATIC)
+            ifneq (, $(F_BRANDELF))
+		@$(BRANDELF) -t $(OS_SYSN) $(PROGRAM_STATIC)
+            endif
+		@echo "done"
+
+$(PROGRAM_PURIFY):	$(OS_DIR_NEED) $(OBJS) $(LIBS) # purify
+		@echo $(ECHO_FLAG) "Loading $(PROGRAM_PURIFY) ... "
+		@$(PURIFY)					\
+		    $(LINKER) $(LDFLAGS) $(OBJS) $(OBJS_ADD)	\
+		      $(LIBS) $(LIBS_SYS) -o $(PROGRAM_PURIFY)
+		@echo "done"
+
+$(PROGRAM_QUANTIFY):	$(OS_DIR_NEED) $(OBJS) $(LIBS) # quantify
+		@echo $(ECHO_FLAG) "Loading $(PROGRAM_QUANTIFY) ... "
+		@$(QUANTIFY)					\
+		    $(LINKER) $(LDFLAGS) $(OBJS) $(OBJS_ADD)	\
+		      $(LIBS) $(LIBS_SYS) -o $(PROGRAM_QUANTIFY)
+		@echo "done"
+
+$(PROGRAM_COVERAGE):	$(OS_DIR_NEED) $(OBJS) $(LIBS) # coverage
+		@echo $(ECHO_FLAG) "Loading $(PROGRAM_COVERAGE) ... "
+		@$(COVERAGE)					\
+		    $(LINKER) $(LDFLAGS) $(OBJS) $(OBJS_ADD)	\
+		      $(LIBS) $(LIBS_SYS) -o $(PROGRAM_COVERAGE)
+		@echo "done"
+
+.PHONY:		all		\
+		purify		\
+		quantify	\
+		coverage	\
+		static		\
+		zipsrc		\
+		clean		\
+		dirclean	\
+		depend		\
+		extract		\
+		index		\
+		install		\
+		lint		\
+		print		\
+		rcsdiff		\
+		tar		\
+		test		\
+		run		\
+		tags		\
+		update
+
+purify:		$(PROGRAM_PURIFY)
+
+quantify:	$(PROGRAM_QUANTIFY)
+
+coverage:	$(PROGRAM_COVERAGE)
+
+static:		$(PROGRAM_STATIC)
+
+zipsrc:;	@echo $(ECHO_FLAG) "Making/updating $(ZIPFILE.src) ... "
+		@(cd ..; \
+		  zip -u -l \
+		  -r ./$(CURR_DIR)/$(ZIPFILE.src) $(CURR_DIR) \
+		  -i \*README -i \*TODO -i \*EBNF \
+		  -i \*EXTENDING -i \*PORTING \
+		  -i \*USAGE -i \*INSTALL -i \*NOTES \
+		  -i \*FILES -i \*CHANGES -i \*REQUIREMENTS -i \*BUGS \
+		  -i \*install\* -i \*configure \
+		  -i \*.htm* \
+		  -i \*.txt -i \*.1 -i \*.3 -i \*.8 -i \*.tmpl \
+		  -i \*.inc -i \*.init -i \*.invinit \
+		  -i \*.csh -i \*.sh \
+		  -i \*.ps \
+		  -i \*.y -i \*.l \*.awk \
+		  -i \*.m4 -i \*.in -i \*mkdep -i \*.sub -i \*.guess \
+		  -i \*.in -i \*.sub \
+		  $(ZIPFILE_ADD) \
+		  -i \*.java -i \*.c -i \*.cpp -i \*.C -i \*.h \
+		  -i \*.s \
+		  -i \*Makefile\* -i \*make\* \
+		  -i \*.proj -i \*.dproj \
+		  -x \*,v ; \
+		  if [ status = 12 ] ; then \
+		    set status = 0 ; \
+		  fi )
+
+PROGRAM_UPPER	= $(shell echo $(PROGRAM_NAME) | tr '[a-z]' '[A-Z]')
+TGZ_FILE	=  $(PROGRAM_UPPER)_$(shell date +'%Y%m%d').tgz
+
+ifeq ($(BOILERPLATE), )
+BOILERPLATE	= COPYRIGHT README
+endif
+
+ifeq ($(EXES), )
+EXES		= $(wildcard *-*/*/$(PROGRAM_NAME))
+endif
+
+ifeq ($(PROGRAM_SCRIPT), )
+PROGRAM_SCRIPT	= $(PROGRAM_NAME).csh
+endif
+
+ifeq ($(INIT_FILES), )
+INIT_FILES	= $(wildcard resource-object/*.init)		\
+		  $(wildcard resource-object/*.inc)		\
+		  $(wildcard resource-object/templates/*.tmpl)	\
+		  $(wildcard resource-object/templates/*.inc)
+endif
+
+tar:		$(TGZ_FILE)
+
+$(TGZ_FILE):	$(BOILERPLATE) $(PROGRAM_SCRIPT) get_os_syms.csh $(EXES) $(INIT_FILES)
+		@ echo "Building $(TGZ_FILE)"
+		@ rm -f $(TGZ_FILE)
+		@ tar -cvhf - $^ | gzip -9 > $(TGZ_FILE)
+
+clean:;		rm -f $(OBJS) $(TARGET) $(OS_DIR)/*.d	\
+		$(PROGRAM_PURIFY) $(PROGRAM_QUANTIFY)	\
+		$(PROGRAM_COVERAGE) $(PROGRAM_STATIC)	\
+		$(CLASSES.java) $(HDRS.java) $(STUBS.java) *.class C_* P_*
+
+dirclean:;	rm -Rf $(OS_NAME_ARCH)
+
+depend:;	mkmf -f $(MAKEFILE) \
+		LIBRARY=$(LIBRARY) LIBRARY.dyn=$(LIBRARY.dyn) \
+		DEST=$(DEST) CFLAGS="$(CFLAGS)" C++FLAGS="$(C++FLAGS)" \
+		SUFFIX="$(SUFFIX)"
+
+extract:;	ar xo $(DEST)/$(LIBRARY)
+		rm -f __.SYMDEF
+
+$(DOCDEST)/%:	%
+		@echo "Installing $< in $(DOCDEST)"
+		@rm -f $@ ; cp $< $@ ; chmod 0440 $@
+
+DOCPUSHED	= $(DOCPUSH:%=$(DOCDEST)/%)
+
+$(HDRSDEST)/%.h:	%.h
+		@echo "Installing $< in $(HDRSDEST)"
+		@rm -f $@ ; cp $< $@ ; chmod 0440 $@
+
+HDRSPUSHED	= $(HDRSPUSH:%=$(HDRSDEST)/%)
+
+index:;		ctags -wx $(HDRS) $(SRCS)
+
+DEST_NEED	= $(shell test ! -d $(DEST) && echo $(DEST))
+
+install:	$(DEST_NEED) $(TARGET) $(HDRSPUSHED) $(DOCPUSHED)
+		@echo " "
+		@echo "Installing $(TARGET) in $(DEST)"
+ifneq (, $(PROGRAM_NAME))
+		@rm -f $(DEST)/$(PROGRAM_NAME) $(DEST)/$(PROGRAM_STATIC_NAME)
+		@cp $(PROGRAM) $(DEST)/$(PROGRAM_NAME)
+		@chmod 555 $(DEST)/$(PROGRAM_NAME)
+		@ if [ -x $(PROGRAM_STATIC) ] ; then \
+		    cp $(PROGRAM_STATIC) $(DEST)/$(PROGRAM_STATIC_NAME) ; \
+		    chmod 555 $(DEST)/$(PROGRAM_STATIC_NAME) ; \
+		  fi
+endif
+ifneq (, $(LIBRARY_NAME))
+		@rm -f $(DEST)/$(LIBRARY_NAME)
+ifeq ($(OS_TYPE), BSD)
+		@$(INSTALL) -m 755 $(LIBRARY) $(DEST)
+		@ranlib $(DEST)/$(LIBRARY_NAME)
+endif
+ifeq ($(OS_TYPE), SYSV)
+		@$(INSTALL) -m 755 -f $(DEST) $(LIBRARY)
+		@ar ts $(DEST)/$(LIBRARY_NAME)
+endif
+		@chmod 444 $(DEST)/$(LIBRARY_NAME)
+endif
+
+$(DEST):;	$(MKDIR) $(DEST)
+
+library:        $(OS_DIR_NEED) $(LIBRARY) $(LIBRARY.dyn)
+
+lint:;		lint $(CPPFLAGS) $(SRCS)
+
+# Needs to be modified so it installs files in the man subdirectory
+# based on the file's extension.
+.man:		$(MANPUSH)
+		@-if [ "$?" != "" ]; then \
+			echo Installing $? in $(MANDEST); \
+			(cd $(MANDEST); rm -f $(?F)); \
+			cp $? $(MANDEST); \
+			(cd $(HDRSDEST); chmod 444 $(?F)); \
+		fi
+		@rm -f .man
+		@touch .man
+
+print:;		$(PRINT) $(HDRS) $(SRCS)
+
+rcsdiff:;	rcsdiff RCS/*,v
+
+test:		$(PROGRAM)
+		@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)"; \
+			export LD_LIBRARY_PATH; \
+			$(DEBUGGER) $(PROGRAM)
+
+ifneq (, $(findstring library, $(CONFIGURATION)))
+    run:	$(TARGET)
+		@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)"; \
+			export LD_LIBRARY_PATH; \
+			CLASSPATH="$(CLASSPATH)"; \
+			export CLASSPATH; \
+			RUNLIST="$(TEST.java)"; \
+	                while [ -n "$${RUNLIST:-}" ] ; \
+				do \
+				i=`echo $$RUNLIST | cut -f1 -d' '` ; \
+				RUNLIST=`echo $$RUNLIST | cut -f2- -d' '` ; \
+				if [ $$i = $$RUNLIST ] ; then \
+					RUNLIST='' ; \
+				fi ; \
+				echo "\n::: $$i :::\n" ; \
+				$(JAVAPATH)$(JAVA) $(JAVAFLAGS) $$i \
+					$(JAVA.args); \
+				done
+endif
+
+ifeq (application, $(findstring application, $(CONFIGURATION)))
+    run:	$(TARGET)
+		@$(PROGRAM)
+endif
+
+tags:           $(HDRS) $(SRCS) $(SRCS.cpp) $(SRCS.C)
+#		ctags $(HDRS) $(SRCS) $(SRCS.cpp) $(SRCS.C)
+		etags $(HDRS) $(SRCS) $(SRCS.cpp) $(SRCS.C)
+
+ifneq (, $(findstring library, $(CONFIGURATION)))
+    update:     $(DEST)/$(LIBRARY_NAME) $(DEST)/$(LIBRARY.dyn)
+
+    $(DEST)/$(LIBRARY_NAME): $(SRCS) $(HDRS) $(DEST)
+		@-ar xo $(DEST)/$(LIBRARY_NAME)
+		@make -f $(MAKEFILE) DEST=$(DEST) install clean
+endif
+
+ifneq (, $(OS_DIR_NEED))
+$(OS_DIR)/%.d:	$(OS_DIR_NEED)
+endif
+
+ifeq (, $(findstring NO_AUTO_HEADER_DEPENDENCY, $(CONFIGURATION)))
+
+$(OS_DIR)/%.o:	%.d
+
+$(OS_DIR)/%.d:	%.c
+		$(SHELL) -ec '$(CC) -MM $(CPPFLAGS) $(CFLAGS_ADD) $< \
+		    | sed '\''s#$*\.o[ :]*#$(OS_DIR)/& $@ #g'\'' > $@'
+
+$(OS_DIR)/%.d:	%.cpp
+		$(SHELL) -ec '$(C++) -MM $(CPPFLAGS) $(C++FLAGS_ADD) $< \
+		    | sed '\''s#$*\.o[ :]*#$(OS_DIR)/& $@ #g'\'' > $@'
+
+$(OS_DIR)/%.d:	%.C
+		$(SHELL) -ec '$(C++) -MM $(CPPFLAGS) $(C++FLAGS_ADD) $< \
+		    | sed '\''s#$*\.o[ :]*#$(OS_DIR)/& $@ #g'\'' > $@'
+
+$(OS_DIR)/%.d:	%.m
+		$(SHELL) -ec '$(CC) -MM $(CPPFLAGS) $< \
+		    | sed '\''s#$*\.o[ :]*#$(OS_DIR)/& $@ #g'\'' > $@'
+
+# If an OS-directory exists, include the dependencies.  Otherwise,
+# we'll assume everything gets built in the OS directory anyway, so
+# the dependencies won't matter, yet.  For some reason I can't explain
+# make does not recognize the dependency on OS dir by the *.d files
+# needed by the includes below, so make fails when the OS dir does not
+# exist.
+
+ifeq (, $(OS_DIR_NEED))
+  ifneq (, $(SRCS))
+include ${SRCS:%.c=$(OS_DIR)/%.d}
+  endif
+  ifneq (, $(findstring CPLUSPLUS, $(CONFIGURATION)))
+    ifneq (, $(SRCS.cpp))
+include ${SRCS.cpp:%.cpp=$(OS_DIR)/%.d}
+    endif
+    ifneq (, $(SRCS.C))
+include ${SRCS.C:%.C=$(OS_DIR)/%.d}
+    endif
+  endif
+  ifneq (, $(SRCS.m))
+include ${SRCS.m:%.m=$(OS_DIR)/%.d}
+  endif
+endif
+
+endif
+
+PROGRAM_DEPENDS	+= 
+
+$(OS_DIR)/$(PROGRAM).o: $(PROGRAM_DEPENDS)
+###
+
+##Local Variables:
+##tab-width: 8
+##End:
