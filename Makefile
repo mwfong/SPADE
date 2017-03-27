@@ -59,9 +59,8 @@ OS_NAME_ARCH  = $(shell $(GET_OS_SYMS) OS_NAME_ARCH)
 OS_NAME	      = $(shell $(GET_OS_SYMS) OS_NAME_FULL)
 OS_DIR	      = $(OS_NAME)$(PROF)
 
-
 # -------- Default Build Configuration -----
-REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON
+REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM
 # -------------------------------------------
 
 .PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
@@ -150,7 +149,7 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
 
 llvm:
 	@make $(LLVM_RULE)
@@ -178,6 +177,7 @@ build-linux-llvm:
 		  LLVMTrace.so
 	clang++  -O3 -Wl,-R -Wl,'$ORIGIN' -Wl,--gc-sections -rdynamic -L./ -L./  -shared -o bin/llvm/LLVMTrace.so src/spade/reporter/llvm/llvmTracer.o -lpthread -ltinfo -ldl -lm 
 	clang -emit-llvm -c src/spade/reporter/llvm/flushModule.c -o bin/llvm/flush.bc
+
 
 	echo llvm[0]: "Compiling WrapperPass.cpp for Release+Asserts build" "(PIC)"
 	clang++ -I$(LLVM_INCLUDE_PATH) -I./ -D_DEBUG -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -O3 -fomit-frame-pointer -std=c++11 -fvisibility-inlines-hidden -fno-exceptions -fno-rtti -fPIC -ffunction-sections -fdata-sections -Wcast-qual -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings -Wcovered-switch-default -Wno-uninitialized -Wno-missing-field-initializers -Wno-comment -c -MMD -MP -MT "WrapperPass.o"  src/spade/reporter/llvm/LibcWrapper.cpp -o src/spade/reporter/llvm/LibcWrapper.o ;
@@ -231,7 +231,7 @@ graph-utility:
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
-	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf src/spade/reporter/lib*FUSE.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeSocketBridge
 	@ (cd src/spade;	$(MAKE) $(MAKECMDGOALS))
