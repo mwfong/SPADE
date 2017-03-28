@@ -163,63 +163,55 @@ void socket_read(char *programName)
 		if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
 }
 
-void stdin_read()
+  static void
+process_file (FILE *file, const char *fName)
 {
 		char buffer[BUFFER_LENGTH];
 
-		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-		do{
-				while (TRUE) {
-						*(buffer + BUFFER_LENGTH - 1) = '\0'; 
-						if(fgets(buffer, BUFFER_LENGTH, stdin) == NULL) {
-								fprintf(stderr, "Reaches the end of file (stdin).\n");
-								UBSI_buffer_flush();
-								break;
-						}
-						UBSI_buffer(buffer);
+		(void) fprintf (stderr, "#CONTROL_MSG#pid=%d\n", getpid());
+		while (TRUE) {
+				*(buffer + BUFFER_LENGTH - 1) = '\0'; 
+				if (fgets (buffer, BUFFER_LENGTH, file) == NULL) {
+						(void) fprintf (stderr, "Reaches the end of file (%s).\n", fName);
+						UBSI_buffer_flush ();
+						break;
 				}
-		} while (FALSE);
+				UBSI_buffer (buffer);
+		}
 }
+
+// read a file: filePath that contains a list of paths to log files, one-per-line
 
 void file_read()
 {
 		FILE *fp = fopen(filePath, "r");
-		FILE *log_fp;
-		char tmp[1024];
-		char buffer[BUFFER_LENGTH];
 
 		if(fp == NULL) {
-				fprintf(stderr, "file open error: %s\n", filePath);
+				(void) fprintf(stderr, "file open error: %s\n", filePath);
 				return;
 		}
 
-		while(!feof(fp)) {
+		while (TRUE) {
+				FILE *log_fp;
+				char tmp[1024];
+
 				if(fgets(tmp, 1024, fp) == NULL) break;
-				fprintf(stderr, "reading a log file: %s", tmp);
+				(void) fprintf(stderr, "reading a log file: %s", tmp);
 				if(tmp[strlen(tmp)-1] == '\n') tmp[strlen(tmp)-1] = '\0';
 				
 				log_fp = fopen(tmp, "r");
 				if(log_fp == NULL) {
-						fprintf(stderr, "file open error: %s", tmp);
+						(void) fprintf(stderr, "file open error: %s", tmp);
 						continue;
 				}
-				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-				while (!feof(log_fp)) {
-						*(buffer + BUFFER_LENGTH - 1) = '\0';
-						if(fgets(buffer, BUFFER_LENGTH, log_fp) == NULL) {
-								fprintf(stderr, "Reaches the end of file (%s).\n", tmp);
-								//UBSI_buffer_flush();
-								break;
-						}
-						UBSI_buffer(buffer);
+				else {
+						process_file (log_fp, tmp);
+						(void) fclose(log_fp);
 				}
-				fclose(log_fp);
 		}
 
 		UBSI_buffer_flush();
-		fclose(fp);
-		// read a file: filePath that contains a list of paths to log files, one-per-line
-
+		(void) fclose(fp);
 }
 
 int main(int argc, char *argv[]) {
@@ -237,7 +229,7 @@ int main(int argc, char *argv[]) {
 
 		if(socketRead) socket_read(programName);
 		else if(fileRead) file_read();
-		else stdin_read();
+		else process_file(stdin, "stdin");
 
 		return 0;
 }
