@@ -6,9 +6,10 @@ endif
 
 LIBRARY_NAME	= libutil.a
 
-SRCS		= dynamic_message.c
+SRCS		= dynamic_message.c	\
+		  dynamic_fgets.c
 
-CPPFLAGS	= -I. -I.. -Wall -pthread
+CPPFLAGS	= -I. -I.. -I../dist -Wall -pthread
 
 ifneq (, $(findstring DEBUG, $(CONFIGURATION)))
   CPPFLAGS     += -DDEBUG

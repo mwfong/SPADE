@@ -4,18 +4,10 @@
 
 
 #include "dynamic_message.h"
+#include "dynamic_message_priv.h"
 
 
 #define _MSG_BUFF_SIZE_ 128
-
-
-typedef struct {
-
-  char   *pMessage;
-  size_t  lMessage;
-  size_t  lMsgMax;
-
-} _DynamicMessage, *_DynamicMessagePtr;
 
 
   static void
