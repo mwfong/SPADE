@@ -13,6 +13,7 @@ typedef struct {
 
   _DynamicMessagePtr pDynMsg;
   size_t	     iStart;
+  size_t	     maxStrlen;
   char		     cachedChar;
 
 } _DynamicFgets, *_DynamicFgetsPtr;
@@ -70,6 +71,7 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
     while (1) {
       size_t nFree;
       size_t nRead;
+      size_t nGrow = 0;
       size_t i;
 
       for (i = iStart; i < pDynMsg->lMessage; i++) {
@@ -78,6 +80,7 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
 	// Found newline
 
 	if     (*p == '\n') {
+	  size_t lenStr;
 
 	  // Terminate string with a NULL
 
@@ -85,6 +88,10 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
 	  *(p + 1) = '\0';
 
 	  p = pDynMsg->pMessage + pDynFgets->iStart;
+
+	  lenStr = i - pDynFgets->iStart + 1;
+	  if (lenStr > pDynFgets->maxStrlen)
+	    pDynFgets->maxStrlen = lenStr;
 
 	  pDynFgets->iStart = i + 1;		// update start of next string
 
@@ -125,8 +132,13 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
 
       nFree = pDynMsg->lMsgMax - pDynMsg->lMessage - 1L;
 
-      if (nFree < pDynMsg->lMsgMax >> 1)
-	(void) DynMsgCapacity ((DynamicMessagePtr) pDynMsg, pDynMsg->lMsgMax >> 1);
+      if      (pDynFgets->maxStrlen /* > 0 */ && nFree < pDynFgets->maxStrlen >> 1)
+	nGrow = pDynFgets->maxStrlen >> 1;
+      else if (nFree < pDynMsg->lMsgMax >> 1)
+	nGrow = pDynMsg->lMsgMax >> 1;
+
+      if (nGrow > 0)
+	(void) DynMsgCapacity ((DynamicMessagePtr) pDynMsg, nGrow);
 
       // Read characters
 
