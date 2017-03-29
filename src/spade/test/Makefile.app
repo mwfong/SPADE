@@ -7,7 +7,7 @@ endif
 ifneq (, $(findstring clean, $(MAKECMDGOALS)))
   _TARGET = clean
 else
-  _TARGET = clean
+  _TARGET = all
 endif
 
 ifneq (, $(findstring message, $(MAKECMDGOALS)))
