@@ -122,8 +122,10 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
       // Check for EOF
 
       if (feof (pDynFgets->pFile) /* != 0 */) {
-	if (pDynFgets->iStart == 0)
+	if (pDynFgets->iStart == 0) {
+	  pDynFgets->iStart = pDynMsg->lMessage;
 	  return DynMsgGet ((DynamicMessagePtr) pDynMsg);
+	}
 	else
 	  return (char *) NULL;
       }
