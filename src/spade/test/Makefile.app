@@ -4,6 +4,12 @@ ifneq (, $(findstring debug, $(MAKECMDGOALS)))
   CONFIGURATION += DEBUG
 endif
 
+ifneq (, $(findstring clean, $(MAKECMDGOALS)))
+  _TARGET = clean
+else
+  _TARGET = clean
+endif
+
 ifneq (, $(findstring message, $(MAKECMDGOALS)))
   PNAME = dynamic_message_test
 endif
@@ -34,9 +40,9 @@ TOOL_DIR	= ..
 
 include ../Makefile.base
 
-message:	all
+message:	$(_TARGET)
 
-fgets:		all
+fgets:		$(_TARGET)
 
 debug:		all
 
