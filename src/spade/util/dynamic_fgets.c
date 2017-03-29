@@ -115,12 +115,12 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
       if (pDynFgets->iStart /* != 0 */) {
 	size_t nChars = pDynMsg->lMessage - pDynFgets->iStart;
 
-	if (nChars /* > 0 */) {
+	if (nChars /* > 0 */)
 	  (void) memcpy (pDynMsg->pMessage, pDynMsg->pMessage + pDynFgets->iStart, nChars);
-	  pDynMsg->lMessage = nChars;
-	  pDynFgets->iStart = 0;
-	  iStart	    = 0;
-	}
+
+	pDynMsg->lMessage = nChars;
+	pDynFgets->iStart = 0;
+	iStart		  = 0;
       }
 
       // Check for EOF
