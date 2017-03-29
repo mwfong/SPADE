@@ -6,19 +6,12 @@
 
 GMsg_declare ();
 
-  int
-main (int argc, char **argv)
+
+  static void
+_sprintfGen (const int nTimes)
 {
   LMsg_declare ();
-  int nTimes = 5;
   int i;
-
-  GMsg_init ();
-
-  --argc; ++argv;
-
-  if (argc /* > 0 */)
-    nTimes = atoi (*argv);
 
   for (i = 0; i < nTimes; i++) {
     unsigned long r   = random ();
@@ -148,9 +141,29 @@ main (int argc, char **argv)
   }
 
   (void) printf ("%s\n", GMsg_get ());
+}
+
+
+  int
+main (int argc, char **argv)
+{
+  GMsg_init ();
+
+  --argc; ++argv;
+
+  if (argc /* > 0 */) {
+    while (argc /* > 0 */) {
+      _sprintfGen (atoi (*argv));
+
+      --argc; ++argv;
+    }
+  }
+  else
+    _sprintfGen (5);
 
   return 0;
 }
+
 
 //Local Variables:
 //tab-width: 8
