@@ -13,6 +13,7 @@ typedef struct {
 
   _DynamicMessagePtr pDynMsg;
   size_t	     iStart;
+  int		     fIsEOF;
   size_t	     maxStrlen;
   char		     cachedChar;
 
@@ -58,6 +59,9 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
   if (pDynFgets /* != (_DynamicFgetsPtr) NULL */) {
     _DynamicMessagePtr pDynMsg = (_DynamicMessagePtr) pDynFgets->pDynMsg;
     size_t	       iStart  = pDynFgets->iStart;
+
+    if (pDynFgets->fIsEOF)
+      return (char *) NULL;
 
     // Provisionally restore the starting character
 
@@ -121,11 +125,10 @@ DynFgets_get (DynamicFgetsPtr _pDynFgets)
 
       // Check for EOF
 
-      if (feof (pDynFgets->pFile) /* != 0 */) {
-	if (pDynFgets->iStart == 0) {
-	  pDynFgets->iStart = pDynMsg->lMessage;
+      pDynFgets->fIsEOF = feof (pDynFgets->pFile);
+      if (pDynFgets->fIsEOF /* != 0 */) {
+	if (pDynFgets->iStart == 0)
 	  return DynMsgGet ((DynamicMessagePtr) pDynMsg);
-	}
 	else
 	  return (char *) NULL;
       }
