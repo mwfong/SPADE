@@ -34,6 +34,7 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <getopt.h>
 
 #include "DynMsg.h"
+#include "dynamic_fgets.h"
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
@@ -166,18 +167,21 @@ void socket_read(char *programName)
   static void
 process_file (FILE *file, const char *fName)
 {
-		char buffer[BUFFER_LENGTH];
+		DynamicFgetsPtr pDynFgets = DynFgetsNew (file);
 
 		(void) fprintf (stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		while (TRUE) {
-				*(buffer + BUFFER_LENGTH - 1) = '\0'; 
-				if (fgets (buffer, BUFFER_LENGTH, file) == NULL) {
-						(void) fprintf (stderr, "Reaches the end of file (%s).\n", fName);
+				char *pBuffer = DynFgets_get (pDynFgets);
+
+				if (pBuffer == NULL) {
+						(void) fprintf (stderr, "Reached the end of file (%s).\n", fName);
 						UBSI_buffer_flush ();
 						break;
 				}
-				UBSI_buffer (buffer);
+				UBSI_buffer (pBuffer);
 		}
+
+		(void) DynFgetsFree (pDynFgets);
 }
 
 // read a file: filePath that contains a list of paths to log files, one-per-line
@@ -185,32 +189,36 @@ process_file (FILE *file, const char *fName)
 void file_read()
 {
 		FILE *fp = fopen(filePath, "r");
+		DynamicFgetsPtr pDynFgets;
 
 		if(fp == NULL) {
 				(void) fprintf(stderr, "file open error: %s\n", filePath);
 				return;
 		}
 
+		pDynFgets = DynFgetsNew (fp);
+
 		while (TRUE) {
 				FILE *log_fp;
-				char tmp[1024];
+				char *pBuffer = DynFgets_get (pDynFgets);
 
-				if(fgets(tmp, 1024, fp) == NULL) break;
-				(void) fprintf(stderr, "reading a log file: %s", tmp);
-				if(tmp[strlen(tmp)-1] == '\n') tmp[strlen(tmp)-1] = '\0';
+				if(pBuffer == NULL) break;
+				(void) fprintf(stderr, "reading a log file: %s", pBuffer);
+				if(pBuffer[strlen(pBuffer)-1] == '\n') pBuffer[strlen(pBuffer)-1] = '\0';
 				
-				log_fp = fopen(tmp, "r");
+				log_fp = fopen(pBuffer, "r");
 				if(log_fp == NULL) {
-						(void) fprintf(stderr, "file open error: %s", tmp);
+						(void) fprintf(stderr, "file open error: %s", pBuffer);
 						continue;
 				}
 				else {
-						process_file (log_fp, tmp);
+						process_file (log_fp, pBuffer);
 						(void) fclose(log_fp);
 				}
 		}
 
 		UBSI_buffer_flush();
+		(void) DynFgetsFree (pDynFgets);
 		(void) fclose(fp);
 }
 
@@ -477,9 +485,7 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		if(ptr == NULL) {
 				fprintf(stderr, "loop_entry error! cannot find proc info: %s", buf);
 		} else {
-				ptr++;
-				strncpy(unit->proc, ptr, strlen(ptr));
-				unit->proc[strlen(ptr)] = '\0';
+				strcpy(unit->proc, ++ptr);
 		}
 		//unit->proc = get this info;
 }
