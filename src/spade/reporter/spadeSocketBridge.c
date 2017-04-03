@@ -420,14 +420,14 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 
 		GMsg_init ();
 
-		DynMsg_strncat (_pGDynMsg, buf, strlen (buf));
+		GMsg_strcat (buf);
 		if(print_unit) {
-				DynMsg_sprintf (_pGDynMsg, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d)"
+				GMsg_sprintf (" unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d)"
 							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
-				DynMsg_sprintf (_pGDynMsg, " %s", ut->proc);
+				GMsg_sprintf (" %s", ut->proc);
 		}
 
 		if(!print_proc) GMsg_addchar ('\n');
@@ -494,7 +494,7 @@ void loop_exit(unit_table_t *unit)
 {
 		GMsg_init ();
 
-		DynMsg_sprintf (_pGDynMsg, "type=UBSI_EXIT pid=%d", unit->cur_unit.tid);
+		GMsg_sprintf ("type=UBSI_EXIT pid=%d", unit->cur_unit.tid);
 		emit_log (unit, GMsg_get (), false, true);
 		unit->valid = false;
 }
@@ -534,7 +534,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		DynMsg_sprintf (_pGDynMsg, "type=UBSI_ENTRY msg=(%.3f:%ld):", time, eventid);
+		GMsg_sprintf ("type=UBSI_ENTRY msg=(%.3f:%ld):", time, eventid);
 		emit_log(unit, GMsg_get (), true, true);
 		//TODO: emit unit_entry event with 5 tuples: {pid, unitid, iteration, start_time, count}
 }
@@ -547,10 +547,10 @@ void unit_end(unit_table_t *unit, long a1)
 				GMsg_init ();
 				// emit linked unit lists;
 				if(unit->link_unit != NULL) {
-						DynMsg_sprintf (_pGDynMsg, "type=UBSI_DEP list=\"");
+						GMsg_sprintf ("type=UBSI_DEP list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
 								//sprintf(buf+strlen(buf), "%d-%d,", ut->id.tid, ut->id.unitid);
-								DynMsg_sprintf (_pGDynMsg, "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
+								GMsg_sprintf ("(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
 								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
 						GMsg_addchar ('\"');
